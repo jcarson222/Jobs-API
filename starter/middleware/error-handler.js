@@ -1,4 +1,4 @@
-const { CustomAPIError } = require("../errors");
+//const { CustomAPIError } = require("../errors");
 const { StatusCodes } = require("http-status-codes");
 const errorHandlerMiddleware = (err, req, res, next) => {
   let customError = {
@@ -6,11 +6,19 @@ const errorHandlerMiddleware = (err, req, res, next) => {
     msg: err.message || "Something went wrong",
   };
 
-  if (err instanceof CustomAPIError) {
-    return res.status(err.statusCode).json({ msg: err.message });
+  // if (err instanceof CustomAPIError) {
+  //   return res.status(err.statusCode).json({ msg: err.message });
+  // }
+
+  // This takes the mongoose ValidationError. Reference the err object in POSTMAN if confused why we're mapping. Object.VALUES on this one because we want the values (email, password)
+  if (err.name === "ValidationError") {
+    customError.msg = Object.values(err.errors)
+      .map((item) => item.message)
+      .join(", ");
+    customError.statusCode = 400;
   }
 
-  // This if statement takes the mongoose error for duplicate emails - custom msg and an accurate status code
+  // This takes the mongoose error for duplicate emails - custom msg and an accurate status code. Object.keys because we want a KEY. err{keyValue: 11000}
   if (err.code && err.code === 11000) {
     customError.msg = `Duplicate value entered for ${Object.keys(
       err.keyValue
@@ -19,7 +27,12 @@ const errorHandlerMiddleware = (err, req, res, next) => {
     customError.StatusCode = 400;
   }
 
-  //return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ err })
+  if (err.name === "CastError") {
+    customError.msg = `No item found with id: ${err.value}.`;
+    customError.statusCode = 404;
+  }
+
+  // return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ err });
   return res.status(customError.statusCode).json({ msg: customError.msg });
 };
 
