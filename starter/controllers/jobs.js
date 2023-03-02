@@ -8,22 +8,67 @@ const getAllJobs = async (req, res) => {
 };
 
 const getJob = async (req, res) => {
-  res.send("get single job");
+  const {
+    user: { userId },
+    params: { id }, // job id
+  } = req;
+  const job = await Job.findOne({ _id: id, createdBy: userId });
+
+  if (!job) {
+    throw new NotFoundError(`No job with id ${id}`);
+  }
+  res.status(StatusCodes.OK).json({ job });
 };
 
 const createJob = async (req, res) => {
   req.body.createdBy = req.user.userId; // req.user was set in the authentication MW
   // ^^^ (.createdBy validator) fulfilled DYNAMICALLY
   const job = await Job.create(req.body);
+
   res.status(StatusCodes.CREATED).json({ job });
 };
 
 const updateJob = async (req, res) => {
-  res.send("update job");
+  const {
+    body: { company, position },
+    user: { userId },
+    params: { id }, // job id
+  } = req;
+
+  if (company === "" || position === "") {
+    throw new BadRequestError("Company and Position fields must be specified");
+  }
+
+  const job = await Job.findOneAndUpdate(
+    { _id: id, createdBy: userId },
+    req.body,
+    { new: true, runValidators: true }
+  );
+  // ^^^ findOneAndUpdate(conditions, update-to, options)
+  // ^^^ options used here: new --> if true, return the modified document rather than the original
+  // ^^^ runValidators --> Update validators are off by default - you need to specify the runValidators option to make sure the updated job meets the requirements.
+
+  if (!job) {
+    throw new NotFoundError(`No job with id ${id}`);
+  }
+  res.status(StatusCodes.OK).json({ job });
 };
 
 const deleteJob = async (req, res) => {
-  res.send("delete job");
+  const {
+    user: { userId },
+    params: { id }, // job id
+  } = req;
+
+  const job = await Job.findOneAndRemove({
+    _id: id,
+    createdBy: userId,
+  });
+
+  if (!job) {
+    throw new NotFoundError(`No job with id ${id}`);
+  }
+  res.status(StatusCodes.OK).send();
 };
 
 module.exports = {
